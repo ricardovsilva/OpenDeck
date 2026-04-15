@@ -38,11 +38,25 @@
 	let pressed: boolean = false;
 
 	let state: ActionState | undefined;
+	function getDisplayInstance(instance: ActionInstance, depth = 0): ActionInstance {
+		if (
+			depth < 10 &&
+			instance.display_child_index !== null &&
+			instance.display_child_index !== undefined &&
+			instance.children !== null &&
+			instance.children !== undefined &&
+			instance.children[instance.display_child_index] !== undefined
+		) {
+			return getDisplayInstance(instance.children[instance.display_child_index], depth + 1);
+		}
+		return instance;
+	}
 	$: {
 		if (!slot) {
 			state = undefined;
 		} else {
-			state = slot.states[slot.current_state];
+			const displayInstance = getDisplayInstance(slot);
+			state = displayInstance.states[displayInstance.current_state];
 		}
 	}
 
@@ -160,7 +174,8 @@
 		} else {
 			const unlock = await lock.lock();
 			try {
-				let fallback = sl.action.states[sl.current_state]?.image ?? sl.action.icon;
+				const displaySl = getDisplayInstance(sl);
+				let fallback = displaySl.action.states[displaySl.current_state]?.image ?? displaySl.action.icon;
 				if (state) await renderImage(canvas, context, state, fallback, showOk, showAlert, true, active, pressed, $settings?.rotation);
 			} finally {
 				unlock();

@@ -29,6 +29,7 @@ pub async fn create_instance(app: AppHandle, action: Action, context: Context) -
 			current_state: 0,
 			settings: serde_json::Value::Object(serde_json::Map::new()),
 			children: None,
+			display_child_index: None,
 		};
 		children.push(instance.clone());
 
@@ -59,6 +60,7 @@ pub async fn create_instance(app: AppHandle, action: Action, context: Context) -
 			} else {
 				None
 			},
+			display_child_index: None,
 		};
 
 		*slot = Some(instance.clone());
@@ -167,12 +169,22 @@ pub async fn remove_instance(context: ActionContext) -> Result<(), Error> {
 		*slot = None;
 	} else {
 		let children = instance.children.as_mut().unwrap();
-		for (index, instance) in children.iter().enumerate() {
-			if instance.context == context {
-				let _ = crate::events::outbound::will_appear::will_disappear(instance, true).await;
-				let _ = remove_dir_all(instance_images_dir(&instance.context)).await;
+		let mut removed_index: Option<usize> = None;
+		for (index, child) in children.iter().enumerate() {
+			if child.context == context {
+				let _ = crate::events::outbound::will_appear::will_disappear(child, true).await;
+				let _ = remove_dir_all(instance_images_dir(&child.context)).await;
 				children.remove(index);
+				removed_index = Some(index);
 				break;
+			}
+		}
+		// Adjust display_child_index after child removal.
+		if let Some(removed) = removed_index {
+			match instance.display_child_index {
+				Some(d) if d as usize == removed => instance.display_child_index = None,
+				Some(d) if d as usize > removed => instance.display_child_index = Some(d - 1),
+				_ => {}
 			}
 		}
 		if instance.action.uuid == "opendeck.toggleaction" {
@@ -265,5 +277,46 @@ struct KeyMovedEvent {
 pub async fn key_moved(app: &AppHandle, context: Context, pressed: bool) -> Result<(), anyhow::Error> {
 	let window = app.get_webview_window("main").unwrap();
 	window.emit("key_moved", KeyMovedEvent { context, pressed })?;
+	Ok(())
+}
+
+/// Set which child action's display (icon and state) should be surfaced to the parent slot.
+///
+/// Only one child can be the display child at a time. If `child_index` is out of bounds,
+/// an error is returned. Calling this command replaces any previously set display child.
+#[command]
+pub async fn set_display_child(app: AppHandle, context: Context, child_index: u16) -> Result<(), Error> {
+	let mut locks = acquire_locks_mut().await;
+	let slot = get_slot_mut(&context, &mut locks).await?;
+	let instance = slot.as_mut().ok_or(Error::from(anyhow::anyhow!("no instance at context")))?;
+
+	let child_count = instance.children.as_ref().map(|c| c.len()).ok_or(Error::from(anyhow::anyhow!("instance has no children")))?;
+
+	if child_index as usize >= child_count {
+		return Err(Error::from(anyhow::anyhow!("child_index out of bounds")));
+	}
+
+	instance.display_child_index = Some(child_index);
+	let parent_context = instance.context.clone();
+
+	save_profile(&context.device, &mut locks).await?;
+	update_state(&app, parent_context, &mut locks).await?;
+
+	Ok(())
+}
+
+/// Clear the display child of a parent slot, reverting to the parent's default display.
+#[command]
+pub async fn clear_display_child(app: AppHandle, context: Context) -> Result<(), Error> {
+	let mut locks = acquire_locks_mut().await;
+	let slot = get_slot_mut(&context, &mut locks).await?;
+	let instance = slot.as_mut().ok_or(Error::from(anyhow::anyhow!("no instance at context")))?;
+
+	instance.display_child_index = None;
+	let parent_context = instance.context.clone();
+
+	save_profile(&context.device, &mut locks).await?;
+	update_state(&app, parent_context, &mut locks).await?;
+
 	Ok(())
 }

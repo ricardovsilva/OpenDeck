@@ -68,6 +68,8 @@ pub struct DiskActionInstance {
 	pub current_state: u16,
 	pub settings: serde_json::Value,
 	pub children: Option<Vec<DiskActionInstance>>,
+	#[serde(default)]
+	pub display_child_index: Option<u16>,
 }
 
 impl From<ActionInstance> for DiskActionInstance {
@@ -133,6 +135,7 @@ impl From<ActionInstance> for DiskActionInstance {
 			current_state: value.current_state,
 			settings: value.settings,
 			children: value.children.map(|c| c.into_iter().map(|v| v.into()).collect()),
+			display_child_index: value.display_child_index,
 		}
 	}
 }
@@ -182,6 +185,7 @@ impl DiskActionInstance {
 			current_state: self.current_state,
 			settings: self.settings,
 			children: self.children.map(|c| c.into_iter().map(|v| v.into_action_instance(path)).collect()),
+			display_child_index: self.display_child_index,
 		}
 	}
 }

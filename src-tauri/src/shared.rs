@@ -305,6 +305,11 @@ pub struct ActionInstance {
 	pub current_state: u16,
 	pub settings: serde_json::Value,
 	pub children: Option<Vec<ActionInstance>>,
+	/// Index of the child whose display (icon and state) should be surfaced to this slot.
+	/// Only valid when `children` is `Some`. If the index is out of bounds, the parent's
+	/// default display is used as a fallback.
+	#[serde(default)]
+	pub display_child_index: Option<u16>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]

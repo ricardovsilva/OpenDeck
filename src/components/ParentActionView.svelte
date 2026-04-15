@@ -23,6 +23,19 @@
 	$: children = profile.keys[$inspectedParentAction!.position]!.children!;
 	let parentUuid: string;
 	$: parentUuid = profile.keys[$inspectedParentAction!.position]!.action.uuid;
+	let parentInstance: ActionInstance;
+	$: parentInstance = profile.keys[$inspectedParentAction!.position]!;
+
+	async function toggleDisplayChild(index: number, shouldUse: boolean) {
+		if (shouldUse) {
+			await invoke("set_display_child", { context: $inspectedParentAction, childIndex: index });
+			profile.keys[$inspectedParentAction!.position]!.display_child_index = index;
+		} else {
+			await invoke("clear_display_child", { context: $inspectedParentAction });
+			profile.keys[$inspectedParentAction!.position]!.display_child_index = null;
+		}
+		profile = profile;
+	}
 
 	function handleDragOver(event: DragEvent) {
 		event.preventDefault();
@@ -57,6 +70,15 @@
 
 	async function removeInstance(index: number, refocus = false) {
 		await invoke("remove_instance", { context: children[index].context });
+		const slot = profile.keys[$inspectedParentAction!.position]!;
+		// Adjust display_child_index to match backend adjustment after removal.
+		if (slot.display_child_index !== null && slot.display_child_index !== undefined) {
+			if (slot.display_child_index === index) {
+				slot.display_child_index = null;
+			} else if (slot.display_child_index > index) {
+				slot.display_child_index = slot.display_child_index - 1;
+			}
+		}
 		children.splice(index, 1);
 		profile.keys[$inspectedParentAction!.position]!.children = children;
 
@@ -147,8 +169,21 @@
 				label={(parentUuid == "opendeck.toggleaction" ? "Toggle Action" : "Multi Action") + " action " + (index + 1)}
 			/>
 			<p class="ml-4 text-xl text-neutral-300">{instance.action.name}</p>
+			<!-- svelte-ignore a11y-click-events-have-key-events a11y-no-noninteractive-element-interactions -->
+			<label
+				class="ml-auto mr-2 flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-neutral-500 transition-colors"
+				on:click|stopPropagation
+			>
+				<input
+					type="checkbox"
+					checked={parentInstance?.display_child_index === index}
+					on:change={(e) => toggleDisplayChild(index, e.currentTarget.checked)}
+					class="w-4 h-4 cursor-pointer accent-blue-500"
+				/>
+				<span class="text-sm text-neutral-300">Use display</span>
+			</label>
 			<button
-				class="ml-auto mr-10"
+				class="mr-10"
 				on:click|stopPropagation={() => removeInstance(index)}
 				tabindex={-1}
 				aria-label="Remove {instance.action.name}"

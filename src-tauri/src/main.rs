@@ -81,6 +81,8 @@ async fn main() {
 			frontend::instances::set_state,
 			frontend::instances::update_image,
 			frontend::instances::trigger_virtual_press,
+			frontend::instances::set_display_child,
+			frontend::instances::clear_display_child,
 			frontend::profiles::get_profiles,
 			frontend::profiles::get_selected_profile,
 			frontend::profiles::set_selected_profile,
