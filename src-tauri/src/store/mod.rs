@@ -122,6 +122,15 @@ pub struct Settings {
 	pub separatewine: bool,
 	pub developer: bool,
 	pub disableelgato: bool,
+	/// Whether the HTTP management API is enabled.
+	pub mcp_enabled: bool,
+	/// IP address the management API binds to. Defaults to loopback (`127.0.0.1`).
+	pub mcp_bind_address: String,
+	/// Port the management API listens on.
+	pub mcp_port: u16,
+	/// Optional bearer token for the management API.
+	/// Required when `mcp_bind_address` is not a loopback address.
+	pub mcp_token: Option<String>,
 }
 
 impl Default for Settings {
@@ -140,6 +149,10 @@ impl Default for Settings {
 			separatewine: false,
 			developer: false,
 			disableelgato: false,
+			mcp_enabled: false,
+			mcp_bind_address: "127.0.0.1".to_owned(),
+			mcp_port: 57120,
+			mcp_token: None,
 		}
 	}
 }

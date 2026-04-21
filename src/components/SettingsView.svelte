@@ -137,6 +137,84 @@
 			<input type="checkbox" bind:checked={$settings.disableelgato} id="settings-disableelgato" />
 			<Tooltip> This option disables discovery of Elgato devices so that they can be managed by other software. </Tooltip>
 		</div>
+
+		<hr class="my-3 border-neutral-600" />
+		<h3 class="m-2 font-semibold text-neutral-300">Management API</h3>
+		<Tooltip class="ml-2 mb-1">
+			The management API exposes an HTTP interface that lets external tools (such as MCP servers) control OpenDeck programmatically. Changes take effect after restarting the app.
+		</Tooltip>
+
+		<div class="flex flex-row items-center m-2 space-x-2">
+			<label for="settings-mcp_enabled" class="text-neutral-400">Enable management API:</label>
+			<input type="checkbox" bind:checked={$settings.mcp_enabled} id="settings-mcp_enabled" />
+		</div>
+
+		{#if $settings.mcp_enabled}
+			<div class="flex flex-row items-center m-2 space-x-2">
+				<label for="settings-mcp_bind_address" class="text-neutral-400">Bind address:</label>
+				<input
+					type="text"
+					bind:value={$settings.mcp_bind_address}
+					class="w-36 px-1 text-neutral-300 border border-neutral-600 rounded-lg"
+					id="settings-mcp_bind_address"
+					placeholder="127.0.0.1"
+				/>
+				<Tooltip>
+					IP address the management API will listen on. Use <code>127.0.0.1</code> (default) to accept
+					only local connections, or <code>0.0.0.0</code> to accept connections from other devices on
+					your network (a bearer token is then required).
+				</Tooltip>
+			</div>
+
+			<div class="flex flex-row items-center m-2 space-x-2">
+				<label for="settings-mcp_port" class="text-neutral-400">Port:</label>
+				<input
+					type="number"
+					min="1024"
+					max="65535"
+					bind:value={$settings.mcp_port}
+					class="w-20 px-1 text-neutral-300 border border-neutral-600 rounded-lg"
+					id="settings-mcp_port"
+				/>
+			</div>
+
+			<div class="flex flex-row items-center m-2 space-x-2">
+				<label for="settings-mcp_token" class="text-neutral-400">
+					Bearer token:
+					{#if $settings.mcp_bind_address !== "127.0.0.1" && $settings.mcp_bind_address !== "::1"}
+						<span class="text-red-400">*</span>
+					{/if}
+				</label>
+				<input
+					type="password"
+					value={$settings.mcp_token ?? ""}
+					on:input={(e) => {
+						if ($settings) {
+							const v = e.currentTarget.value.trim();
+							$settings.mcp_token = v || null;
+						}
+					}}
+					class="w-48 px-1 text-neutral-300 border border-neutral-600 rounded-lg"
+					id="settings-mcp_token"
+					placeholder={$settings.mcp_bind_address === "127.0.0.1" || $settings.mcp_bind_address === "::1" ? "optional on loopback" : "required"}
+				/>
+				<Tooltip>
+					When set, every API request must include an <code>Authorization: Bearer &lt;token&gt;</code>
+					header. Optional when bound to loopback; required for any other address.
+				</Tooltip>
+			</div>
+
+			{#if $settings.mcp_bind_address !== "127.0.0.1" && $settings.mcp_bind_address !== "::1"}
+				<div class="mx-2 my-1 flex flex-row items-start space-x-2 rounded-lg border border-yellow-600 bg-yellow-950 p-2 text-sm text-yellow-300">
+					<span>⚠️</span>
+					<span>
+						The management API is configured to accept connections from outside this machine. A bearer
+						token is <strong>required</strong> for security. Make sure your firewall is configured
+						appropriately.
+					</span>
+				</div>
+			{/if}
+		{/if}
 	{/if}
 
 	<div class="ml-2">

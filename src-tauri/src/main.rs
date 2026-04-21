@@ -5,6 +5,7 @@ mod application_watcher;
 mod device_sleep;
 mod elgato;
 mod events;
+mod management_api;
 mod plugins;
 mod shared;
 mod store;
@@ -195,6 +196,19 @@ If you have already donated, thank you so much for your support!"#,
 			plugins::initialise_plugins();
 			application_watcher::init_application_watcher();
 			device_sleep::init_device_sleep();
+
+			if settings.value.mcp_enabled {
+				let addr = settings.value.mcp_bind_address.clone();
+				let port = settings.value.mcp_port;
+				// Treat an empty token the same as no token so that clearing the field in the UI
+				// correctly disables authentication rather than accepting empty bearer strings.
+				let token = settings.value.mcp_token.clone().filter(|t| !t.is_empty());
+				tokio::spawn(async move {
+					if let Err(error) = management_api::start(addr, port, token).await {
+						log::error!("Failed to start MCP management API: {error}");
+					}
+				});
+			}
 
 			let label = IconMenuItemBuilder::with_id("label", PRODUCT_NAME)
 				.icon(app.default_window_icon().unwrap().clone())
