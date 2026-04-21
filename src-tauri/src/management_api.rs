@@ -303,6 +303,11 @@ struct SetStatePayload {
 }
 
 async fn api_set_state(Path((device, profile, controller, position)): Path<(String, String, String, u8)>, Json(payload): Json<SetStatePayload>) -> Result<impl IntoResponse, ApiError> {
+	// `ActionContext.index` identifies the action instance within the slot:
+	//   0 = the top-level (parent) action,
+	//   1+ = children inside a multi-action.
+	// The management API always targets the parent action; `payload.index` is the *state* index
+	// (i.e. which of the action's states to update, e.g. state 0 or state 1 of a 2-state button).
 	let context = ActionContext::from_context(
 		Context {
 			device,
@@ -312,21 +317,21 @@ async fn api_set_state(Path((device, profile, controller, position)): Path<(Stri
 		},
 		0,
 	);
-	let mut state = payload.state;
+	let mut new_state = payload.state;
 
 	// If the image field is an absolute path to a local file, copy it into managed storage so
 	// that the profile JSON always references a path that OpenDeck controls.
-	let image_path = std::path::Path::new(&state.image);
+	let image_path = std::path::Path::new(&new_state.image);
 	if image_path.is_absolute() {
 		if !image_path.exists() {
-			return Err(ApiError::bad_request(format!("image file not found: {}", state.image)));
+			return Err(ApiError::bad_request(format!("image file not found: {}", new_state.image)));
 		}
 		let dest_dir = instance_images_dir(&context);
 		tokio::fs::create_dir_all(&dest_dir).await?;
 		let extension = image_path.extension().and_then(|e| e.to_str()).unwrap_or("png");
 		let dest = dest_dir.join(format!("api_state_{}.{}", payload.index, extension));
 		tokio::fs::copy(image_path, &dest).await?;
-		state.image = dest.to_string_lossy().into_owned();
+		new_state.image = dest.to_string_lossy().into_owned();
 	}
 
 	// Update the instance state directly, mirroring the logic in
@@ -349,7 +354,7 @@ async fn api_set_state(Path((device, profile, controller, position)): Path<(Stri
 			)));
 		}
 
-		instance.states[payload.index as usize] = state;
+		instance.states[payload.index as usize] = new_state;
 		clone = instance.clone();
 	} // mutable borrow of locks released here
 
